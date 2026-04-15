@@ -426,7 +426,17 @@ function loadState() {
   try { const s=localStorage.getItem('postalApp_v3'); if(s) Object.assign(state,JSON.parse(s)); } catch(e){}
 }
 function saveState() {
-  localStorage.setItem('postalApp_v3', JSON.stringify({parcels:state.parcels}));
+  try {
+    localStorage.setItem('postalApp_v3', JSON.stringify({parcels:state.parcels}));
+  } catch(e) {
+    try {
+      const recent = state.parcels.slice(-500);
+      localStorage.setItem('postalApp_v3', JSON.stringify({parcels:recent}));
+      showToast('พื้นที่จัดเก็บเต็ม: บันทึกเฉพาะ 500 รายการล่าสุด', 3500);
+    } catch(e2) {
+      showToast('ไม่สามารถบันทึกข้อมูลได้: พื้นที่จัดเก็บเต็ม', 3500);
+    }
+  }
 }
 
 // ==================== UTILS ====================
@@ -703,13 +713,17 @@ function generateReceipt() {
   const now=new Date();
   const dateStr=now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
   const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const total=state.parcels.reduce((s,p)=>s+p.price,0);
+  const grandTotal=state.parcels.reduce((s,p)=>s+p.price,0);
 
-  // Group by university for summary
-  const byUni={};
+  // Group by price, sort barcodes by serial
+  const byPrice={};
   state.parcels.forEach(p=>{
-    if(!byUni[p.uni])byUni[p.uni]={count:0,total:0};
-    byUni[p.uni].count++;byUni[p.uni].total+=p.price;
+    if(!byPrice[p.price])byPrice[p.price]=[];
+    byPrice[p.price].push(p);
+  });
+  const priceGroups=Object.entries(byPrice).sort((a,b)=>Number(a[0])-Number(b[0]));
+  priceGroups.forEach(([,parcels])=>{
+    parcels.sort((a,b)=>a.barcode.substring(2,11).localeCompare(b.barcode.substring(2,11)));
   });
 
   let html=`<div class="receipt-wrap"><div class="receipt-paper">`;
@@ -724,47 +738,31 @@ function generateReceipt() {
   if(!state.parcels.length) {
     html+=`<div class="r-center" style="padding:16px;color:#888">ยังไม่มีรายการพัสดุ</div>`;
   } else {
-    // Items
-    state.parcels.forEach((p,i)=>{
+    // Items grouped by price
+    priceGroups.forEach(([price,parcels],idx)=>{
+      const first=parcels[0].barcode;
+      const last=parcels[parcels.length-1].barcode;
+      const count=parcels.length;
+      const total=count*Number(price);
+
       html+=`<div class="r-item">`;
-      // Line 1: sequence + uni code
-      html+=`<div class="r-row">`;
-      html+=`<span><b>${i+1}.</b> ${p.uni||''}${p.picNo?' #'+p.picNo:''}</span>`;
-      html+=`<span style="font-size:11px;color:#666">${p.pkg||'A3'}</span>`;
-      html+=`</div>`;
-      // Line 2: EMS barcode (formatted like receipt)
-      html+=`<div class="r-barcode" style="margin:2px 0">N EMS &nbsp; ${formatEMSDisplay(p.barcode||'')}</div>`;
-      // Line 3: weight + price
+      html+=`<div><b>${idx+1}.</b> EMS ไน่</div>`;
+      if(count>1){
+        html+=`<div class="r-barcode">${formatEMSDisplay(first)} – ${formatEMSDisplay(last)}</div>`;
+      } else {
+        html+=`<div class="r-barcode">${formatEMSDisplay(first)}</div>`;
+      }
       html+=`<div class="r-price-line">`;
-      html+=`<span>${Number(p.weight).toFixed(3)} กก. &nbsp; ส่งด่วน EMS</span>`;
-      html+=`<span>${p.price.toLocaleString()}.00 บ.</span>`;
+      html+=`<span>N EMS ไน่ &nbsp;&nbsp; ${count}@${Number(price).toFixed(2)}</span>`;
+      html+=`<span>฿${total.toLocaleString()}.00</span>`;
       html+=`</div>`;
       html+=`</div>`;
     });
 
-    // Total
+    // Grand total
     html+=`<hr class="r-line">`;
-    html+=`<div class="r-total-box">`;
-    html+=`<div class="r-grand"><span>รวม ${state.parcels.length} รายการ</span><span>${total.toLocaleString()}.00 บ.</span></div>`;
-    html+=`</div>`;
-
-    // Summary by uni
-    if(Object.keys(byUni).length>1){
-      html+=`<hr class="r-dash">`;
-      html+=`<div style="font-size:11px;font-weight:700;margin-bottom:3px">สรุปตามรหัส:</div>`;
-      Object.entries(byUni).sort().forEach(([u,v])=>{
-        html+=`<div class="r-uni-sum"><span>${u||'-'}</span><span>${v.count} ชิ้น = ${v.total.toLocaleString()} บ.</span></div>`;
-      });
-    }
-
-    // Weight/price breakdown
-    html+=`<hr class="r-dash">`;
-    html+=`<div style="font-size:11px;font-weight:700;margin-bottom:3px">สรุปตามราคา:</div>`;
-    const byPr={};
-    state.parcels.forEach(p=>{if(!byPr[p.price])byPr[p.price]={c:0};byPr[p.price].c++;});
-    Object.entries(byPr).sort((a,b)=>Number(a[0])-Number(b[0])).forEach(([pr,v])=>{
-      html+=`<div class="r-uni-sum"><span>${pr} บ.</span><span>${v.c} ชิ้น = ${(v.c*Number(pr)).toLocaleString()} บ.</span></div>`;
-    });
+    html+=`<div class="r-grand"><span>รวมทั้งสิ้น</span><span>฿${grandTotal.toLocaleString()}.00</span></div>`;
+    html+=`<div class="r-grand"><span>เงินสด</span><span>฿${grandTotal.toLocaleString()}.00</span></div>`;
   }
 
   html+=`<hr class="r-line">`;
