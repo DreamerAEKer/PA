@@ -357,6 +357,10 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
 <div class="toast" id="toast"></div>
 
 <script>
+// ==================== UI HELPERS ====================
+function setElText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; return el; }
+function setElHtml(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html; return el; }
+
 // ==================== EMS BARCODE LOGIC ====================
 const EMS_WEIGHTS = [8,6,4,2,3,5,9,7];
 
@@ -394,14 +398,23 @@ function generateSequence(startCode, count) {
 }
 
 function validateBarcode(inputId, statusId) {
-  const val = document.getElementById(inputId).value.trim().toUpperCase();
-  const el = document.getElementById(statusId);
-  if (!val) { el.textContent = ''; return; }
+  if (!val) { setElText(statusId, ''); return; }
   const p = parseEMS(val);
-  if (!p) { el.style.color='#e74c3c'; el.textContent='รูปแบบไม่ถูกต้อง (ต้องเป็น XX########XTH)'; return; }
-  if (!p.valid) { el.style.color='#e74c3c'; el.textContent=`Check digit ไม่ถูกต้อง (ควรเป็น ${emsCheckDigit(String(p.serial).padStart(8,'0'))})`; return; }
-  el.style.color='#27ae60';
-  el.textContent = `✓ ถูกต้อง | Serial: ${p.serial} | ${formatEMSDisplay(val)}`;
+  if (!p) {
+    const el = document.getElementById(statusId);
+    if (el) { el.style.color='#e74c3c'; el.textContent='รูปแบบไม่ถูกต้อง (ต้องเป็น XX########XTH)'; }
+    return;
+  }
+  if (!p.valid) {
+    const el = document.getElementById(statusId);
+    if (el) { el.style.color='#e74c3c'; el.textContent=`Check digit ไม่ถูกต้อง (ควรเป็น ${emsCheckDigit(String(p.serial).padStart(8,'0'))})`; }
+    return;
+  }
+  const el = document.getElementById(statusId);
+  if (el) {
+    el.style.color='#27ae60';
+    el.textContent = `✓ ถูกต้อง | Serial: ${p.serial} | ${formatEMSDisplay(val)}`;
+  }
 }
 
 // ==================== PRICING ====================
@@ -431,13 +444,14 @@ function saveState() {
 
 // ==================== UTILS ====================
 function showToast(msg, dur=2200) {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),dur);
+  const t = setElText('toast', msg);
+  if (t) t.classList.add('show');
+  setTimeout(()=> { const el = document.getElementById('toast'); if(el) el.classList.remove('show'); }, dur);
 }
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
+  const pgEl = document.getElementById('page-'+id);
+  if (pgEl) pgEl.classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   if(id==='list'){renderList();updateStats();}
@@ -457,29 +471,28 @@ function init() {
 }
 function updateDate() {
   const n=new Date();
-  document.getElementById('headerDate').textContent =
+  setElText('headerDate', 
     n.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})+' '+
-    n.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+    n.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})
+  );
 }
 
 // ==================== CALC PAGE ====================
 function initCalcPage() {
-  const pg=document.getElementById('pkgGrid');
-  pg.innerHTML=Object.keys(PKG_BASE).map(p=>
+  setElHtml('pkgGrid', Object.keys(PKG_BASE).map(p=>
     `<button class="pkg-btn${p===state.calcPkg?' active':''}" onclick="selectPkg('${p}',this)">${p}<br><span style="font-size:10px;opacity:.7">${PKG_BASE[p]}฿</span></button>`
-  ).join('');
-  const wg=document.getElementById('weightGrid');
+  ).join(''));
   const ws=[1,2,3,4,5,6,7,8,10,15,20];
-  wg.innerHTML=ws.map(w=>
+  setElHtml('weightGrid', ws.map(w=>
     `<button class="weight-btn${w===state.calcWeight?' active':''}" onclick="selectWeight(${w},this)">${w}กก</button>`
-  ).join('');
+  ).join(''));
   updateCalcDisplay();
   buildPriceTable();
 }
 function selectPkg(p,el){state.calcPkg=p;document.querySelectorAll('.pkg-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');updateCalcDisplay();}
 function selectWeight(w,el){state.calcWeight=w;document.querySelectorAll('.weight-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('customWeight').value='';updateCalcDisplay();}
 function calcCustomWeight(){const w=parseFloat(document.getElementById('customWeight').value);if(!w||w<=0){showToast('กรุณากรอกน้ำหนัก');return;}state.calcWeight=w;document.querySelectorAll('.weight-btn').forEach(b=>b.classList.remove('active'));updateCalcDisplay();}
-function updateCalcDisplay(){document.getElementById('calcPrice').textContent=calcPrice(state.calcWeight,state.calcPkg).toLocaleString();}
+function updateCalcDisplay(){setElText('calcPrice', calcPrice(state.calcWeight,state.calcPkg).toLocaleString());}
 function buildPriceTable(){
   const rows=[1,2,3,4,5,6,7,8,10,15,20];
   const pkgs=['A1','A3','A5','A10','A12'];
@@ -489,7 +502,7 @@ function buildPriceTable(){
     pkgs.forEach(p=>{ const pr=calcPrice(w,p); h+=`<td${p==='A3'?' class="hl"':''}>${pr}</td>`; });
     h+='</tr>';
   });
-  document.getElementById('priceTableMini').innerHTML=h+'</tbody>';
+  setElHtml('priceTableMini', h+'</tbody>');
 }
 
 // ==================== MODE SWITCH ====================
@@ -503,9 +516,9 @@ function switchMode(m) {
 
 // ==================== SINGLE ADD ====================
 function updateSinglePrice(){
-  const w=parseFloat(document.getElementById('sWeight').value)||0;
-  const p=document.getElementById('sPkg').value;
-  document.getElementById('sPriceShow').textContent=w>0?calcPrice(w,p).toLocaleString():'-';
+  const w=parseFloat(document.getElementById('sWeight')?.value)||0;
+  const p=document.getElementById('sPkg')?.value;
+  setElText('sPriceShow', w>0?calcPrice(w,p).toLocaleString():'-');
 }
 
 let lastBarcode = null;
@@ -540,11 +553,11 @@ function addSingle() {
   saveState(); updateStats(); buildUniTabs();
   // auto-advance barcode
   const next=buildEMS(p.prefix,p.serial+1,p.country);
-  document.getElementById('sBarcode').value=next;
+  setElText('sBarcode', next);
   validateBarcode('sBarcode','sBarcodeStatus');
-  document.getElementById('sPicNo').value='';
-  document.getElementById('sWeight').value='';
-  document.getElementById('sPriceShow').textContent='-';
+  const picEl = document.getElementById('sPicNo'); if(picEl) picEl.value='';
+  const wtEl = document.getElementById('sWeight'); if(wtEl) wtEl.value='';
+  setElText('sPriceShow', '-');
   showToast(`บันทึก ${barcode} ราคา ${price} บาท`);
 }
 
@@ -575,7 +588,7 @@ function previewBatch() {
       <span class="var-wt-price" id="bpr_${i}">${pr>0?pr+' ฿':'-'}</span>
     </div>`;
   });
-  document.getElementById('varWeightList').innerHTML=html;
+  setElHtml('varWeightList', html);
   updateBatchTotals(codes, pkg);
 }
 
@@ -591,9 +604,9 @@ function updateBatchRow(i, code, pkg) {
   });
   const total=codes.reduce((s,c)=>s+(c.wt>0?calcPrice(c.wt,pkg):0),0);
   const validCount=codes.filter(c=>c.wt>0).length;
-  document.getElementById('batchSumCount').textContent=validCount;
-  document.getElementById('batchSumPrice').textContent=total.toLocaleString()+' บาท';
-  document.getElementById('batchTotalBadge').textContent=`รวม ${total.toLocaleString()} บาท`;
+  setElText('batchSumCount', validCount);
+  setElText('batchSumPrice', total.toLocaleString()+' บาท');
+  setElText('batchTotalBadge', `รวม ${total.toLocaleString()} บาท`);
 }
 
 function updateBatchTotals(codes, pkg) {
@@ -602,9 +615,9 @@ function updateBatchTotals(codes, pkg) {
     const wt=parseFloat(document.getElementById('bwt_'+i)?.value)||0;
     if(wt>0){total+=calcPrice(wt,pkg);validCount++;}
   });
-  document.getElementById('batchSumCount').textContent=validCount;
-  document.getElementById('batchSumPrice').textContent=total.toLocaleString()+' บาท';
-  document.getElementById('batchTotalBadge').textContent=`รวม ${total.toLocaleString()} บาท`;
+  setElText('batchSumCount', validCount);
+  setElText('batchSumPrice', total.toLocaleString()+' บาท');
+  setElText('batchTotalBadge', `รวม ${total.toLocaleString()} บาท`);
 }
 
 function addBatch() {
@@ -636,24 +649,24 @@ function addBatch() {
   document.getElementById('bBarcodeStart').value='';
   document.getElementById('bCount').value='';
   document.getElementById('bWeightAll').value='';
-  document.getElementById('bBarcodeStatus').textContent='';
-  document.getElementById('batchPreviewCard').style.display='none';
+  setElText('bBarcodeStatus', '');
+  const card = document.getElementById('batchPreviewCard');
+  if(card) card.style.display='none';
 }
 
 // ==================== LIST ====================
 function updateStats() {
   const p=state.parcels;
-  document.getElementById('statCount').textContent=p.length.toLocaleString();
+  setElText('statCount', p.length.toLocaleString());
   const tot=p.reduce((s,x)=>s+x.price,0);
-  document.getElementById('statTotal').textContent=tot.toLocaleString();
-  document.getElementById('statWeight').textContent=p.reduce((s,x)=>s+(x.weight||0),0).toFixed(1);
-  document.getElementById('headerStats').textContent=`${p.length} ชิ้น\n${tot.toLocaleString()} บ.`;
+  setElText('statTotal', tot.toLocaleString());
+  setElText('statWeight', p.reduce((s,x)=>s+(x.weight||0),0).toFixed(1));
+  setElText('headerStats', `${p.length} ชิ้น\n${tot.toLocaleString()} บ.`);
 }
 function buildUniTabs() {
   const unis=[...new Set(state.parcels.map(p=>p.uni).filter(Boolean))].sort();
-  const row=document.getElementById('uniTabRow');
-  row.innerHTML='<div class="tab-item active" onclick="filterUni(\'\',this)">ทั้งหมด</div>'+
-    unis.map(u=>`<div class="tab-item" onclick="filterUni('${u}',this)">${u}</div>`).join('');
+  setElHtml('uniTabRow', '<div class="tab-item active" onclick="filterUni(\'\',this)">ทั้งหมด</div>'+
+    unis.map(u=>`<div class="tab-item" onclick="filterUni('${u}',this)">${u}</div>`).join(''));
 }
 function filterUni(uni,el){
   state.filterUni=uni;
@@ -668,9 +681,9 @@ function renderList() {
   if(search) p=p.filter(x=>(x.barcode||'').toLowerCase().includes(search)||(x.uni||'').toLowerCase().includes(search)||(x.picNo||'').toLowerCase().includes(search));
   const el=document.getElementById('parcelList');
   const em=document.getElementById('emptyState');
-  if(!p.length){el.innerHTML='';em.style.display='block';return;}
-  em.style.display='none';
-  el.innerHTML=p.map((x,i)=>`
+  if(!p.length){ if(el) el.innerHTML=''; if(em) em.style.display='block'; return; }
+  if(em) em.style.display='none';
+  setElHtml('parcelList', p.map((x,i)=>`
     <div class="parcel-item">
       <div class="parcel-no">${i+1}</div>
       <div class="parcel-info">
@@ -771,7 +784,7 @@ function generateReceipt() {
   html+=`<div class="r-center" style="font-size:10px;color:#888">พิมพ์: ${dateStr} ${timeStr}</div>`;
   html+=`<div class="r-center" style="font-size:10px;color:#888">ระบบรับฝากพัสดุ EMS</div>`;
   html+=`</div></div>`;
-  document.getElementById('receiptContent').innerHTML=html;
+  setElHtml('receiptContent', html);
 }
 
 // ==================== REPORT ====================
@@ -780,7 +793,7 @@ function showReport(tab, el) {
   if(el){document.querySelectorAll('#page-import .tab-item').forEach(t=>t.classList.remove('active'));el.classList.add('active');}
   const p=state.parcels;
   let html='';
-  if(!p.length){document.getElementById('reportContent').innerHTML='<div style="text-align:center;padding:20px;color:#888">ยังไม่มีข้อมูล</div>';return;}
+  if(!p.length){setElHtml('reportContent', '<div style="text-align:center;padding:20px;color:#888">ยังไม่มีข้อมูล</div>');return;}
   if(tab==='uni'){
     const m={};
     p.forEach(x=>{if(!m[x.uni])m[x.uni]={c:0,t:0,w:0};m[x.uni].c++;m[x.uni].t+=x.price;m[x.uni].w+=x.weight||0;});
@@ -808,7 +821,7 @@ function showReport(tab, el) {
       `<tr class="total-row"><td>รวม</td><td class="right">${p.length}</td></tr>`+
       `</tbody></table>`;
   }
-  document.getElementById('reportContent').innerHTML=html;
+  setElHtml('reportContent', html);
 }
 
 // ==================== IMPORT ====================
@@ -842,12 +855,21 @@ function importExcel(input) {
       });
       saveState();updateStats();buildUniTabs();renderList();showReport(state.reportTab,null);
       const st=document.getElementById('importStatus');
-      st.className='alert alert-success';st.textContent=`นำเข้าสำเร็จ ${added} รายการ จาก "${file.name}"`;st.style.display='block';
+      if(st) {
+        st.className='alert alert-success';
+        st.textContent=`นำเข้าสำเร็จ ${added} รายการ จาก "${file.name}"`;
+        st.style.display='block';
+      }
       showToast(`นำเข้า ${added} รายการ`);
     } catch(err){
+      console.error('Import error:', err);
       const st=document.getElementById('importStatus');
-      st.style.cssText='display:block;padding:10px;background:#fde;color:red;border-radius:8px;font-size:13px';
-      st.textContent='ไม่สามารถอ่านไฟล์: '+err.message;
+      if(st) {
+        st.style.cssText='display:block;padding:10px;background:#fde;color:red;border-radius:8px;font-size:13px';
+        st.textContent='ไม่สามารถอ่านไฟล์: '+err.message;
+      } else {
+        alert('เกิดข้อผิดพลาดในการนำเข้า: ' + err.message);
+      }
     }
   };
   reader.readAsBinaryString(file);
