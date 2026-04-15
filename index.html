@@ -176,140 +176,27 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
   </div>
 </div>
 
-<!-- ==================== PAGE: เพิ่มพัสดุ ==================== -->
-<div class="page" id="page-add">
-  <div class="mode-toggle no-print">
-    <button class="mode-btn active" id="modeBtn1" onclick="switchMode('single')">รายเดี่ยว</button>
-    <button class="mode-btn" id="modeBtn2" onclick="switchMode('batch')">ชุดพัสดุ (EMS ต่อเนื่อง)</button>
-  </div>
-
-  <!-- Single mode -->
-  <div id="singleMode">
-    <div class="card">
-      <div class="card-title">บันทึกพัสดุรายเดี่ยว</div>
-      <label>รหัสมหาวิทยาลัย / ลูกค้า</label>
-      <input type="text" id="sUni" placeholder="เช่น KL, UK, AB" style="text-transform:uppercase">
-      <label>หมายเลขรูป</label>
-      <input type="text" id="sPicNo" placeholder="เช่น 001197">
-      <label>รหัสบาร์โค้ด EMS</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="sBarcode" class="mono" placeholder="EQ183062405TH" style="flex:1" oninput="this.value=this.value.toUpperCase();validateBarcode('sBarcode','sBarcodeStatus')">
-        <button class="btn btn-outline btn-sm" onclick="autoNextBarcode()">ถัดไป</button>
-      </div>
-      <div id="sBarcodeStatus" style="font-size:11px;margin-top:3px"></div>
-      <label>ประเภทแพ็กเกจ</label>
-      <select id="sPkg" onchange="updateSinglePrice()">
-        <option value="A1">A1 (เริ่ม 17 บ.)</option><option value="A2">A2 (เริ่ม 18 บ.)</option>
-        <option value="A3" selected>A3 (เริ่ม 19 บ.)</option><option value="A4">A4 (เริ่ม 20 บ.)</option>
-        <option value="A5">A5 (เริ่ม 21 บ.)</option><option value="A6">A6 (เริ่ม 22 บ.)</option>
-        <option value="A7">A7 (เริ่ม 23 บ.)</option><option value="A8">A8 (เริ่ม 24 บ.)</option>
-        <option value="A9">A9 (เริ่ม 25 บ.)</option><option value="A10">A10 (เริ่ม 26 บ.)</option>
-        <option value="A11">A11 (เริ่ม 28 บ.)</option><option value="A12">A12 (เริ่ม 30 บ.)</option>
-      </select>
-      <label>น้ำหนัก (กิโลกรัม)</label>
-      <input type="number" id="sWeight" placeholder="เช่น 3" min="0.1" max="20" step="0.1" oninput="updateSinglePrice()">
-      <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center;margin:12px 0">
-        <div style="font-size:12px;color:#888">ราคาที่คำนวณได้</div>
-        <div style="font-size:36px;font-weight:800;color:var(--primary)" id="sPriceShow">-</div>
-        <div style="font-size:12px;color:#888">บาท</div>
-      </div>
-      <button class="btn btn-primary btn-block" onclick="addSingle()">+ บันทึกพัสดุ</button>
-    </div>
-  </div>
-
-  <!-- Batch mode -->
-  <div id="batchMode" style="display:none">
-    <div class="card">
-      <div class="card-title">บันทึกชุดพัสดุ EMS ต่อเนื่อง</div>
-      <div class="alert alert-info" style="margin-bottom:10px;font-size:12px">
-        ป้อนบาร์โค้ดแรก + จำนวน → ระบบสร้างเลข EMS ถัดไปอัตโนมัติพร้อม check digit ที่ถูกต้อง
-      </div>
-      <label>รหัสมหาวิทยาลัย / ลูกค้า</label>
-      <input type="text" id="bUni" placeholder="เช่น KL, UK, AB" style="text-transform:uppercase">
-      <label>หมายเลขรูปเริ่มต้น</label>
-      <input type="text" id="bPicStart" placeholder="เช่น 001197">
-      <label>รหัส EMS แรก (บาร์โค้ดแรกในชุด)</label>
-      <input type="text" id="bBarcodeStart" class="mono" placeholder="EQ183062405TH"
-        oninput="this.value=this.value.toUpperCase();validateBarcode('bBarcodeStart','bBarcodeStatus');previewBatch()"
-        onchange="previewBatch()">
-      <div id="bBarcodeStatus" style="font-size:11px;margin-top:3px"></div>
-      <label>จำนวนพัสดุในชุด</label>
-      <input type="number" id="bCount" placeholder="เช่น 7" min="1" max="200" oninput="previewBatch()">
-      <label>ประเภทแพ็กเกจ</label>
-      <select id="bPkg" onchange="previewBatch()">
-        <option value="A1">A1</option><option value="A2">A2</option>
-        <option value="A3" selected>A3</option><option value="A4">A4</option>
-        <option value="A5">A5</option><option value="A6">A6</option>
-        <option value="A7">A7</option><option value="A8">A8</option>
-        <option value="A9">A9</option><option value="A10">A10</option>
-        <option value="A11">A11</option><option value="A12">A12</option>
-      </select>
-      <label>น้ำหนักทุกชิ้น (กก.) — หรือกำหนดทีละชิ้นด้านล่าง</label>
-      <div class="wt-row">
-        <input type="number" id="bWeightAll" placeholder="เช่น 3 (ใส่ 0 เพื่อกำหนดเอง)" min="0" max="20" step="0.1" oninput="previewBatch()">
-        <span style="font-size:13px;color:#888;white-space:nowrap">กก. ทุกชิ้น</span>
-      </div>
-    </div>
-
-    <!-- Preview -->
-    <div class="card" id="batchPreviewCard" style="display:none">
-      <div class="card-title">
-        ตรวจสอบรายการก่อนบันทึก
-        <span id="batchTotalBadge" style="font-size:12px;color:#888;font-weight:400"></span>
-      </div>
-      <div id="varWeightList" class="var-wt-list"></div>
-      <div style="margin-top:10px;padding-top:10px;border-top:2px solid #f0f0f0;display:flex;justify-content:space-between;font-weight:700">
-        <span>รวม <span id="batchSumCount">0</span> ชิ้น</span>
-        <span id="batchSumPrice" style="color:var(--primary)">0 บาท</span>
-      </div>
-      <button class="btn btn-success btn-block" style="margin-top:10px" onclick="addBatch()">✓ บันทึกทั้งหมด</button>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== PAGE: รายการ ==================== -->
-<div class="page" id="page-list">
-  <div class="stats-row">
-    <div class="stat-card"><div class="val" id="statCount">0</div><div class="lbl">ชิ้น</div></div>
-    <div class="stat-card"><div class="val" id="statTotal">0</div><div class="lbl">บาทรวม</div></div>
-    <div class="stat-card"><div class="val" id="statWeight">0</div><div class="lbl">กก.รวม</div></div>
-  </div>
-  <div class="card">
-    <div class="search-box"><input type="text" id="searchInput" placeholder="ค้นหา บาร์โค้ด / รหัส ม." oninput="renderList()"></div>
-    <div class="tab-row" id="uniTabRow"></div>
-    <div id="parcelList"></div>
-    <div id="emptyState" style="text-align:center;padding:30px;color:#888;display:none">
-      <p>ยังไม่มีพัสดุในรายการ</p>
-      <p style="font-size:12px;margin-top:6px">กดแท็บ "เพิ่ม" เพื่อบันทึกพัสดุ</p>
-    </div>
-  </div>
-  <div style="display:flex;gap:8px">
-    <button class="btn btn-outline btn-block" onclick="clearAll()">ล้างทั้งหมด</button>
-    <button class="btn btn-success btn-block" onclick="exportExcel()">ส่งออก Excel</button>
-  </div>
-</div>
-
-<!-- ==================== PAGE: ใบเสร็จ ==================== -->
-<div class="page" id="page-receipt">
-  <div class="card no-print" style="margin-bottom:10px">
-    <div class="card-title">ตั้งค่าใบเสร็จ</div>
-    <label>ชื่อที่ทำการไปรษณีย์</label>
-    <input type="text" id="officeName" value="ที่ทำการไปรษณีย์ขนส่ง">
-    <label>รหัส POS</label>
-    <input type="text" id="posCode" value="020020020">
-    <label>ชื่อผู้ส่ง / หน่วยงาน</label>
-    <input type="text" id="senderName" placeholder="เช่น มหาวิทยาลัยราชภัฏ...">
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn btn-primary btn-block" onclick="generateReceipt()">สร้างใบเสร็จ</button>
-      <button class="btn btn-outline btn-block" onclick="window.print()">🖨️ พิมพ์</button>
-    </div>
-  </div>
-  <div id="receiptContent"></div>
-</div>
-
-<!-- ==================== PAGE: รายงาน ==================== -->
+<!-- ==================== PAGE: นำเข้า + ใบเสร็จ ==================== -->
 <div class="page" id="page-import">
-  <div class="card">
+
+  <!-- ตั้งค่าใบเสร็จ (ยุบได้) -->
+  <div class="card no-print">
+    <div class="card-title" style="cursor:pointer" onclick="toggleSettings()">
+      ตั้งค่าใบเสร็จ
+      <span id="settingsToggleIcon" style="font-size:12px;color:#888">▼ ขยาย</span>
+    </div>
+    <div id="settingsBody" style="display:none">
+      <label>ชื่อที่ทำการไปรษณีย์</label>
+      <input type="text" id="officeName" value="ที่ทำการไปรษณีย์ขนส่ง">
+      <label>รหัส POS</label>
+      <input type="text" id="posCode" value="020020020">
+      <label>ชื่อผู้ส่ง / หน่วยงาน</label>
+      <input type="text" id="senderName" placeholder="เช่น มหาวิทยาลัยราชภัฏ...">
+    </div>
+  </div>
+
+  <!-- นำเข้า Excel -->
+  <div class="card no-print">
     <div class="card-title">นำเข้าข้อมูลจาก Excel</div>
     <div class="import-zone" id="importZone" onclick="document.getElementById('fileInput').click()">
       <svg viewBox="0 0 24 24" fill="#ccc"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h2v-2h4v2h2l-4 5-4-5zm4-9H8l4-4v4z"/></svg>
@@ -319,38 +206,28 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
     <input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none" onchange="importExcel(this)">
     <div id="importStatus" style="display:none"></div>
   </div>
-  <div class="card">
-    <div class="card-title">รายงานสรุปประจำวัน</div>
-    <div class="tab-row">
-      <div class="tab-item active" onclick="showReport('uni',this)">ตามรหัส ม.</div>
-      <div class="tab-item" onclick="showReport('price',this)">ตามราคา</div>
-      <div class="tab-item" onclick="showReport('weight',this)">ตามน้ำหนัก</div>
+
+  <!-- ใบเสร็จ (โผล่หลัง import) -->
+  <div id="receiptArea" style="display:none">
+    <div style="display:flex;gap:8px;margin-bottom:10px" class="no-print">
+      <button class="btn btn-outline btn-block" onclick="generateReceipt()">🔄 สร้างใหม่</button>
+      <button class="btn btn-primary btn-block" onclick="window.print()">🖨️ พิมพ์</button>
+      <button class="btn btn-gray btn-block" onclick="clearAllAndReset()">🗑️ ล้าง</button>
     </div>
-    <div id="reportContent"></div>
+    <div id="receiptContent"></div>
   </div>
+
 </div>
 
-<!-- Bottom Nav -->
+<!-- Bottom Nav (2 ปุ่ม) -->
 <div class="bottom-nav">
   <button class="nav-btn active" onclick="showPage('calc',this)">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
     คำนวณ
   </button>
-  <button class="nav-btn" onclick="showPage('add',this)">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-    เพิ่มพัสดุ
-  </button>
-  <button class="nav-btn" onclick="showPage('list',this)">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
-    รายการ
-  </button>
-  <button class="nav-btn" onclick="showPage('receipt',this)">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V7h12v2zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20z"/></svg>
-    ใบเสร็จ
-  </button>
   <button class="nav-btn" onclick="showPage('import',this)">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
-    รายงาน
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h2v-2h4v2h2l-4 5-4-5zm4-9H8l4-4v4z"/></svg>
+    นำเข้า / ใบเสร็จ
   </button>
 </div>
 
@@ -439,7 +316,17 @@ function loadState() {
   try { const s=localStorage.getItem('postalApp_v3'); if(s) Object.assign(state,JSON.parse(s)); } catch(e){}
 }
 function saveState() {
-  localStorage.setItem('postalApp_v3', JSON.stringify({parcels:state.parcels}));
+  try {
+    localStorage.setItem('postalApp_v3', JSON.stringify({parcels:state.parcels}));
+  } catch(e) {
+    try {
+      const recent = state.parcels.slice(-500);
+      localStorage.setItem('postalApp_v3', JSON.stringify({parcels:recent}));
+      showToast('พื้นที่จัดเก็บเต็ม: บันทึกเฉพาะ 500 รายการล่าสุด', 3500);
+    } catch(e2) {
+      showToast('ไม่สามารถบันทึกข้อมูลได้: พื้นที่จัดเก็บเต็ม', 3500);
+    }
+  }
 }
 
 // ==================== UTILS ====================
@@ -707,6 +594,22 @@ function clearAll(){
   if(!confirm(`ลบพัสดุทั้งหมด ${state.parcels.length} รายการ?`)) return;
   state.parcels=[];saveState();renderList();updateStats();buildUniTabs();showToast('ล้างรายการทั้งหมดแล้ว');
 }
+function clearAllAndReset(){
+  if(!state.parcels.length){showToast('ไม่มีข้อมูล');return;}
+  if(!confirm(`ล้างข้อมูลทั้งหมด ${state.parcels.length} รายการ?`)) return;
+  state.parcels=[];saveState();updateStats();
+  document.getElementById('receiptArea').style.display='none';
+  document.getElementById('receiptContent').innerHTML='';
+  document.getElementById('importStatus').style.display='none';
+  showToast('ล้างข้อมูลแล้ว');
+}
+function toggleSettings(){
+  const body=document.getElementById('settingsBody');
+  const icon=document.getElementById('settingsToggleIcon');
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  icon.textContent=open?'▲ ย่อ':'▼ ขยาย';
+}
 
 // ==================== RECEIPT ====================
 function generateReceipt() {
@@ -716,13 +619,17 @@ function generateReceipt() {
   const now=new Date();
   const dateStr=now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
   const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const total=state.parcels.reduce((s,p)=>s+p.price,0);
+  const grandTotal=state.parcels.reduce((s,p)=>s+p.price,0);
 
-  // Group by university for summary
-  const byUni={};
+  // Group by price, sort barcodes by serial
+  const byPrice={};
   state.parcels.forEach(p=>{
-    if(!byUni[p.uni])byUni[p.uni]={count:0,total:0};
-    byUni[p.uni].count++;byUni[p.uni].total+=p.price;
+    if(!byPrice[p.price])byPrice[p.price]=[];
+    byPrice[p.price].push(p);
+  });
+  const priceGroups=Object.entries(byPrice).sort((a,b)=>Number(a[0])-Number(b[0]));
+  priceGroups.forEach(([,parcels])=>{
+    parcels.sort((a,b)=>a.barcode.substring(2,11).localeCompare(b.barcode.substring(2,11)));
   });
 
   let html=`<div class="receipt-wrap"><div class="receipt-paper">`;
@@ -737,47 +644,31 @@ function generateReceipt() {
   if(!state.parcels.length) {
     html+=`<div class="r-center" style="padding:16px;color:#888">ยังไม่มีรายการพัสดุ</div>`;
   } else {
-    // Items
-    state.parcels.forEach((p,i)=>{
+    // Items grouped by price
+    priceGroups.forEach(([price,parcels],idx)=>{
+      const first=parcels[0].barcode;
+      const last=parcels[parcels.length-1].barcode;
+      const count=parcels.length;
+      const total=count*Number(price);
+
       html+=`<div class="r-item">`;
-      // Line 1: sequence + uni code
-      html+=`<div class="r-row">`;
-      html+=`<span><b>${i+1}.</b> ${p.uni||''}${p.picNo?' #'+p.picNo:''}</span>`;
-      html+=`<span style="font-size:11px;color:#666">${p.pkg||'A3'}</span>`;
-      html+=`</div>`;
-      // Line 2: EMS barcode (formatted like receipt)
-      html+=`<div class="r-barcode" style="margin:2px 0">N EMS &nbsp; ${formatEMSDisplay(p.barcode||'')}</div>`;
-      // Line 3: weight + price
+      html+=`<div><b>${idx+1}.</b> EMS ไน่</div>`;
+      if(count>1){
+        html+=`<div class="r-barcode">${formatEMSDisplay(first)} – ${formatEMSDisplay(last)}</div>`;
+      } else {
+        html+=`<div class="r-barcode">${formatEMSDisplay(first)}</div>`;
+      }
       html+=`<div class="r-price-line">`;
-      html+=`<span>${Number(p.weight).toFixed(3)} กก. &nbsp; ส่งด่วน EMS</span>`;
-      html+=`<span>${p.price.toLocaleString()}.00 บ.</span>`;
+      html+=`<span>N EMS ไน่ &nbsp;&nbsp; ${count}@${Number(price).toFixed(2)}</span>`;
+      html+=`<span>฿${total.toLocaleString()}.00</span>`;
       html+=`</div>`;
       html+=`</div>`;
     });
 
-    // Total
+    // Grand total
     html+=`<hr class="r-line">`;
-    html+=`<div class="r-total-box">`;
-    html+=`<div class="r-grand"><span>รวม ${state.parcels.length} รายการ</span><span>${total.toLocaleString()}.00 บ.</span></div>`;
-    html+=`</div>`;
-
-    // Summary by uni
-    if(Object.keys(byUni).length>1){
-      html+=`<hr class="r-dash">`;
-      html+=`<div style="font-size:11px;font-weight:700;margin-bottom:3px">สรุปตามรหัส:</div>`;
-      Object.entries(byUni).sort().forEach(([u,v])=>{
-        html+=`<div class="r-uni-sum"><span>${u||'-'}</span><span>${v.count} ชิ้น = ${v.total.toLocaleString()} บ.</span></div>`;
-      });
-    }
-
-    // Weight/price breakdown
-    html+=`<hr class="r-dash">`;
-    html+=`<div style="font-size:11px;font-weight:700;margin-bottom:3px">สรุปตามราคา:</div>`;
-    const byPr={};
-    state.parcels.forEach(p=>{if(!byPr[p.price])byPr[p.price]={c:0};byPr[p.price].c++;});
-    Object.entries(byPr).sort((a,b)=>Number(a[0])-Number(b[0])).forEach(([pr,v])=>{
-      html+=`<div class="r-uni-sum"><span>${pr} บ.</span><span>${v.c} ชิ้น = ${(v.c*Number(pr)).toLocaleString()} บ.</span></div>`;
-    });
+    html+=`<div class="r-grand"><span>รวมทั้งสิ้น</span><span>฿${grandTotal.toLocaleString()}.00</span></div>`;
+    html+=`<div class="r-grand"><span>เงินสด</span><span>฿${grandTotal.toLocaleString()}.00</span></div>`;
   }
 
   html+=`<hr class="r-line">`;
@@ -853,7 +744,7 @@ function importExcel(input) {
         state.parcels.push({uni,picNo,barcode,pkg,weight:wt,price:price||calcPrice(wt,'A3'),date,id:Date.now()+idx});
         added++;
       });
-      saveState();updateStats();buildUniTabs();renderList();showReport(state.reportTab,null);
+      saveState();updateStats();buildUniTabs();
       const st=document.getElementById('importStatus');
       if(st) {
         st.className='alert alert-success';
@@ -861,6 +752,11 @@ function importExcel(input) {
         st.style.display='block';
       }
       showToast(`นำเข้า ${added} รายการ`);
+      // แสดงใบเสร็จทันที
+      generateReceipt();
+      const ra=document.getElementById('receiptArea');
+      ra.style.display='block';
+      setTimeout(()=>ra.scrollIntoView({behavior:'smooth'}),150);
     } catch(err){
       console.error('Import error:', err);
       const st=document.getElementById('importStatus');
