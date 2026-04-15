@@ -908,7 +908,7 @@ function generateReceipt() {
         itemIdx++;
         if(g.count > 1) {
           html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)} - ${formatEMSDisplay(g.end)}</div>`;
-          html+=`<div class="r-price-line"><span>${g.count}@${g.price.toLocaleString()}.00 บ.</span></div>`;
+          html+=`<div class="r-price-line"><span>${g.count} @ ${g.price.toLocaleString()}.00 บ.</span></div>`;
         } else {
           html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)}</div>`;
         }
