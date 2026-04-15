@@ -290,7 +290,7 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
 </div>
 
 <!-- ==================== PAGE: ใบเสร็จ ==================== -->
-<div class="page" id="page-receipt">
+<div class="page active" id="page-receipt">
   <div class="card no-print" style="margin-bottom:10px">
     <div class="card-title" style="cursor:pointer" onclick="toggleSettings()">
       ตั้งค่าใบเสร็จ
@@ -304,6 +304,13 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
       <label>ชื่อผู้ส่ง / หน่วยงาน</label>
       <input type="text" id="senderName" placeholder="เช่น มหาวิทยาลัยราชภัฏ...">
     </div>
+
+    <!-- Toggle Mode -->
+    <div class="mode-toggle" style="margin-top:12px">
+      <button class="mode-btn active" id="modeReceiptSmart" onclick="setReceiptMode('smart')">📄 จัดกลุ่มราคา</button>
+      <button class="mode-btn" id="modeReceiptOriginal" onclick="setReceiptMode('original')">📊 ข้อมูลจริง</button>
+    </div>
+
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn btn-primary btn-block" onclick="generateReceipt()">สร้างใบเสร็จ</button>
       <button class="btn btn-outline btn-block" onclick="window.print()">🖨️ พิมพ์</button>
@@ -314,7 +321,7 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
 </div>
 
 <!-- ==================== PAGE: นำเข้า / ใบเสร็จ (Landing Page) ==================== -->
-<div class="page active" id="page-import">
+<div class="page" id="page-import">
   <div class="card">
     <div class="card-title">นำเข้าข้อมูลจาก Excel (Import)</div>
     <div class="import-zone" id="importZone" onclick="document.getElementById('fileInput').click()">
@@ -350,11 +357,11 @@ input.mono{font-family:'Courier New',monospace;letter-spacing:1px}
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
     รายการ
   </button>
-  <button class="nav-btn" onclick="showPage('receipt',this)">
+  <button class="nav-btn active" onclick="showPage('receipt',this)">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V7h12v2zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20z"/></svg>
     ใบเสร็จ
   </button>
-  <button class="nav-btn active" onclick="showPage('import',this)">
+  <button class="nav-btn" onclick="showPage('import',this)">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
     นำเข้า / ใบเสร็จ
   </button>
@@ -440,7 +447,7 @@ function detectPkg(wt, price) {
 }
 
 // ==================== STATE ====================
-let state = { parcels:[], calcPkg:'A3', calcWeight:1, filterUni:'', reportTab:'uni', addMode:'single' };
+let state = { parcels:[], calcPkg:'A3', calcWeight:1, filterUni:'', reportTab:'uni', addMode:'single', receiptMode:'smart' };
 
 function loadState() {
   try { const s=localStorage.getItem('postalApp_v3'); if(s) Object.assign(state,JSON.parse(s)); } catch(e){}
@@ -476,6 +483,15 @@ function showPage(id, btn) {
   if(id==='receipt'){generateReceipt();}
 }
 
+function setReceiptMode(mode) {
+  state.receiptMode = mode;
+  const btnSmart = document.getElementById('modeReceiptSmart');
+  const btnOrig = document.getElementById('modeReceiptOriginal');
+  if(btnSmart) btnSmart.classList.toggle('active', mode==='smart');
+  if(btnOrig) btnOrig.classList.toggle('active', mode==='original');
+  generateReceipt();
+}
+
 // ==================== INIT ====================
 function init() {
   loadState();
@@ -484,7 +500,7 @@ function init() {
   renderList();
   updateStats();
   buildUniTabs();
-  showReport('uni',null);
+  showPage('receipt', null);
 }
 function updateDate() {
   const n=new Date();
@@ -751,43 +767,104 @@ function generateReceipt() {
   const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const total=state.parcels.reduce((s,p)=>s+p.price,0);
 
-  // Grouping logic (sort by uni, price, weight, then barcode sequence)
-  const sorted = [...state.parcels].sort((a,b) => {
-    if(a.uni !== b.uni) return (a.uni||'').localeCompare(b.uni||'');
-    if(a.price !== b.price) return a.price - b.price;
-    if(a.weight !== b.weight) return a.weight - b.weight;
-    const pa = parseEMS(a.barcode);
-    const pb = parseEMS(b.barcode);
-    if(pa && pb) return pa.serial - pb.serial;
-    return (a.barcode||'').localeCompare(b.barcode||'');
-  });
+  let processed = [];
+  
+  if (state.receiptMode === 'smart') {
+    // 1. Get price counts
+    const priceMap = {};
+    state.parcels.forEach(p => {
+      priceMap[p.price] = (priceMap[p.price] || 0) + 1;
+    });
+    // Sort prices ascending
+    const priceGroups = Object.keys(priceMap).map(Number).sort((a,b)=>a-b).map(pr => ({ price: pr, count: priceMap[pr] }));
 
+    // 2. Sort all unique barcodes by serial
+    const allParcels = [...state.parcels].sort((a,b) => {
+      const pa = parseEMS(a.barcode);
+      const pb = parseEMS(b.barcode);
+      if (pa && pb) return pa.serial - pb.serial;
+      return (a.barcode||'').localeCompare(b.barcode||'');
+    });
+
+    // 3. Reallocate prices based on serial sequence
+    let barcodeIdx = 0;
+    priceGroups.forEach(group => {
+      for (let i = 0; i < group.count; i++) {
+        if (barcodeIdx < allParcels.length) {
+          const original = allParcels[barcodeIdx];
+          processed.push({
+            ...original,
+            price: group.price // Override with reallocated price
+          });
+          barcodeIdx++;
+        }
+      }
+    });
+  } else {
+    // Original mode: Sort by price then serial
+    processed = [...state.parcels].sort((a,b) => {
+      if(a.price !== b.price) return a.price - b.price;
+      const pa = parseEMS(a.barcode);
+      const pb = parseEMS(b.barcode);
+      if(pa && pb) return pa.serial - pb.serial;
+      return (a.barcode||'').localeCompare(b.barcode||'');
+    });
+  }
+
+  // Detect Gaps and Group
   const groups = [];
-  if(sorted.length > 0) {
+  if(processed.length > 0) {
     let current = {
-      uni: sorted[0].uni,
-      price: sorted[0].price,
-      weight: sorted[0].weight,
-      pkg: sorted[0].pkg,
-      start: sorted[0].barcode,
-      end: sorted[0].barcode,
-      lastSerial: parseEMS(sorted[0].barcode)?.serial || 0,
-      count: 1
+      uni: processed[0].uni, price: processed[0].price, weight: processed[0].weight, pkg: processed[0].pkg,
+      start: processed[0].barcode, end: processed[0].barcode,
+      lastSerial: parseEMS(processed[0].barcode)?.serial || 0,
+      count: 1, type: 'item'
     };
-    for(let i=1; i<sorted.length; i++) {
-      const p = sorted[i];
+    
+    for(let i=1; i<processed.length; i++) {
+      const p = processed[i];
       const ps = parseEMS(p.barcode);
-      const isSequential = ps && (ps.serial === current.lastSerial + 1);
-      if(p.uni === current.uni && p.price === current.price && p.weight === current.weight && isSequential) {
-        current.end = p.barcode;
-        current.lastSerial = ps.serial;
-        current.count++;
-      } else {
+      const currentSerial = ps?.serial || 0;
+      
+      // Gap detection: check if there's a gap between this and previous serial
+      if (ps && currentSerial > current.lastSerial + 1) {
+        // Close current group
         groups.push(current);
+        
+        // Add MISSING gap
+        const missingPrefix = ps.prefix;
+        const missingCountry = ps.country;
+        for (let s = current.lastSerial + 1; s < currentSerial; s++) {
+          groups.push({
+            type: 'missing',
+            barcode: buildEMS(missingPrefix, s, missingCountry)
+          });
+        }
+        
+        // Start new group
         current = {
           uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg,
-          start: p.barcode, end: p.barcode, lastSerial: ps?.serial || 0, count: 1
+          start: p.barcode, end: p.barcode, lastSerial: currentSerial,
+          count: 1, type: 'item'
         };
+      } else {
+        // No gap, check if it fits in same group (price/sequence)
+        // In smart mode, we group by price + sequence. In original, price + weight + sequence.
+        const samePrice = p.price === current.price;
+        const isSequential = currentSerial === current.lastSerial + 1;
+        
+        if (samePrice && isSequential) {
+          current.end = p.barcode;
+          current.lastSerial = currentSerial;
+          current.count++;
+        } else {
+          groups.push(current);
+          current = {
+            uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg,
+            start: p.barcode, end: p.barcode, lastSerial: currentSerial,
+            count: 1, type: 'item'
+          };
+        }
       }
     }
     groups.push(current);
@@ -809,17 +886,23 @@ function generateReceipt() {
   if(!groups.length) {
     html+=`<div class="r-center" style="padding:16px;color:#888">ยังไม่มีรายการพัสดุ</div>`;
   } else {
-    groups.forEach((g,i)=>{
-      html+=`<div class="r-item">`;
-      html+=`<div class="r-row"><span><b>${i+1}.</b> EMS ในฯ</span><span style="font-size:11px;color:#666">${g.pkg||'A3'}</span></div>`;
-      if(g.count > 1) {
-        html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)} - ${formatEMSDisplay(g.end)}</div>`;
-        html+=`<div class="r-price-line"><span>${g.count}@${g.price.toLocaleString()}.00 บ.</span></div>`;
+    let itemIdx = 1;
+    groups.forEach((g)=>{
+      if (g.type === 'missing') {
+        html += `<div style="color:#e74c3c;font-weight:700;text-align:center;margin:4px 0;border:1px dashed #e74c3c;padding:2px">--- MISSING: ${formatEMSDisplay(g.barcode)} ---</div>`;
       } else {
-        html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)}</div>`;
+        html+=`<div class="r-item">`;
+        html+=`<div class="r-row"><span><b>${itemIdx}.</b> EMS ในฯ</span><span style="font-size:11px;color:#666">${g.pkg||'A3'}</span></div>`;
+        itemIdx++;
+        if(g.count > 1) {
+          html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)} - ${formatEMSDisplay(g.end)}</div>`;
+          html+=`<div class="r-price-line"><span>${g.count}@${g.price.toLocaleString()}.00 บ.</span></div>`;
+        } else {
+          html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)}</div>`;
+        }
+        html+=`<div class="r-price-line"><span>${Number(g.weight).toFixed(3)} กก. &nbsp; ส่งด่วน EMS</span><span>${(g.price * g.count).toLocaleString()}.00 บ.</span></div>`;
+        html+=`</div>`;
       }
-      html+=`<div class="r-price-line"><span>${Number(g.weight).toFixed(3)} กก. &nbsp; ส่งด่วน EMS</span><span>${(g.price * g.count).toLocaleString()}.00 บ.</span></div>`;
-      html+=`</div>`;
     });
     html+=`<hr class="r-line">`;
     html+=`<div class="r-total-box"><div class="r-grand"><span>รวม ${state.parcels.length} รายการ</span><span>${total.toLocaleString()}.00 บ.</span></div></div>`;
@@ -906,6 +989,7 @@ function importExcel(input) {
         added++;
       });
       saveState();updateStats();buildUniTabs();renderList();showReport(state.reportTab,null);
+      showPage('receipt', null);
       const st=document.getElementById('importStatus');
       if(st) {
         st.className='alert alert-success';
