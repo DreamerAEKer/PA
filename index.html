@@ -741,6 +741,7 @@ function toggleSettings(){
 }
 
 // ==================== RECEIPT ====================
+// ==================== RECEIPT ====================
 function generateReceipt() {
   const office=document.getElementById('officeName')?.value||'ที่ทำการไปรษณีย์ขนส่ง';
   const pos=document.getElementById('posCode')?.value||'020020020';
@@ -749,25 +750,75 @@ function generateReceipt() {
   const dateStr=now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
   const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const total=state.parcels.reduce((s,p)=>s+p.price,0);
+
+  // Grouping logic (sort by uni, price, weight, then barcode sequence)
+  const sorted = [...state.parcels].sort((a,b) => {
+    if(a.uni !== b.uni) return (a.uni||'').localeCompare(b.uni||'');
+    if(a.price !== b.price) return a.price - b.price;
+    if(a.weight !== b.weight) return a.weight - b.weight;
+    const pa = parseEMS(a.barcode);
+    const pb = parseEMS(b.barcode);
+    if(pa && pb) return pa.serial - pb.serial;
+    return (a.barcode||'').localeCompare(b.barcode||'');
+  });
+
+  const groups = [];
+  if(sorted.length > 0) {
+    let current = {
+      uni: sorted[0].uni,
+      price: sorted[0].price,
+      weight: sorted[0].weight,
+      pkg: sorted[0].pkg,
+      start: sorted[0].barcode,
+      end: sorted[0].barcode,
+      lastSerial: parseEMS(sorted[0].barcode)?.serial || 0,
+      count: 1
+    };
+    for(let i=1; i<sorted.length; i++) {
+      const p = sorted[i];
+      const ps = parseEMS(p.barcode);
+      const isSequential = ps && (ps.serial === current.lastSerial + 1);
+      if(p.uni === current.uni && p.price === current.price && p.weight === current.weight && isSequential) {
+        current.end = p.barcode;
+        current.lastSerial = ps.serial;
+        current.count++;
+      } else {
+        groups.push(current);
+        current = {
+          uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg,
+          start: p.barcode, end: p.barcode, lastSerial: ps?.serial || 0, count: 1
+        };
+      }
+    }
+    groups.push(current);
+  }
+
   const byUni={};
   state.parcels.forEach(p=>{
     if(!byUni[p.uni])byUni[p.uni]={count:0,total:0};
     byUni[p.uni].count++;byUni[p.uni].total+=p.price;
   });
+
   let html=`<div class="receipt-wrap"><div class="receipt-paper">`;
   html+=`<div class="r-center r-big">${office}</div>`;
   html+=`<div class="r-center" style="font-size:11px">POS:${pos} &nbsp; ${timeStr}</div>`;
   if(sender) html+=`<div class="r-center" style="font-size:11px">ผู้ส่ง: ${sender}</div>`;
   html+=`<div class="r-center" style="font-size:11px">วันที่: ${dateStr}</div>`;
   html+=`<hr class="r-line">`;
-  if(!state.parcels.length) {
+
+  if(!groups.length) {
     html+=`<div class="r-center" style="padding:16px;color:#888">ยังไม่มีรายการพัสดุ</div>`;
   } else {
-    state.parcels.forEach((p,i)=>{
+    groups.forEach((g,i)=>{
       html+=`<div class="r-item">`;
-      html+=`<div class="r-row"><span><b>${i+1}.</b> ${p.uni||''}${p.picNo?' #'+p.picNo:''}</span><span style="font-size:11px;color:#666">${p.pkg||'A3'}</span></div>`;
-      html+=`<div class="r-barcode" style="margin:2px 0">N EMS &nbsp; ${formatEMSDisplay(p.barcode||'')}</div>`;
-      html+=`<div class="r-price-line"><span>${Number(p.weight).toFixed(3)} กก. &nbsp; ส่งด่วน EMS</span><span>${p.price.toLocaleString()}.00 บ.</span></div>`;
+      html+=`<div class="r-row"><span><b>${i+1}.</b> EMS ในฯ</span><span style="font-size:11px;color:#666">${g.pkg||'A3'}</span></div>`;
+      if(g.count > 1) {
+        html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)} - ${formatEMSDisplay(g.end)}</div>`;
+        html+=`<div class="r-price-line"><span>${g.count}@${g.price.toLocaleString()}.00 บ.</span></div>`;
+      } else {
+        html+=`<div class="r-barcode" style="margin:2px 0">${formatEMSDisplay(g.start)}</div>`;
+      }
+      html+=`<div class="r-price-line"><span>${Number(g.weight).toFixed(3)} กก. &nbsp; ส่งด่วน EMS</span><span>${(g.price * g.count).toLocaleString()}.00 บ.</span></div>`;
       html+=`</div>`;
     });
     html+=`<hr class="r-line">`;
