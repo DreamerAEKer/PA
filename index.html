@@ -812,60 +812,74 @@ function generateReceipt() {
   // Detect Gaps and Group
   const groups = [];
   if(processed.length > 0) {
-    let current = {
-      uni: processed[0].uni, price: processed[0].price, weight: processed[0].weight, pkg: processed[0].pkg,
-      start: processed[0].barcode, end: processed[0].barcode,
-      lastSerial: parseEMS(processed[0].barcode)?.serial || 0,
-      count: 1, type: 'item'
-    };
-    
-    for(let i=1; i<processed.length; i++) {
-      const p = processed[i];
-      const ps = parseEMS(p.barcode);
-      const currentSerial = ps?.serial || 0;
+    if (state.receiptMode === 'smart') {
+      // Smart Mode: Include Gap Detection
+      let current = {
+        uni: processed[0].uni, price: processed[0].price, weight: processed[0].weight, pkg: processed[0].pkg,
+        start: processed[0].barcode, end: processed[0].barcode,
+        lastSerial: parseEMS(processed[0].barcode)?.serial || 0,
+        count: 1, type: 'item'
+      };
       
-      // Gap detection: check if there's a gap between this and previous serial
-      if (ps && currentSerial > current.lastSerial + 1) {
-        // Close current group
-        groups.push(current);
+      for(let i=1; i<processed.length; i++) {
+        const p = processed[i];
+        const ps = parseEMS(p.barcode);
+        const currentSerial = ps?.serial || 0;
         
-        // Add MISSING gap
-        const missingPrefix = ps.prefix;
-        const missingCountry = ps.country;
-        for (let s = current.lastSerial + 1; s < currentSerial; s++) {
-          groups.push({
-            type: 'missing',
-            barcode: buildEMS(missingPrefix, s, missingCountry)
-          });
-        }
-        
-        // Start new group
-        current = {
-          uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg,
-          start: p.barcode, end: p.barcode, lastSerial: currentSerial,
-          count: 1, type: 'item'
-        };
-      } else {
-        // No gap, check if it fits in same group (price/sequence)
-        // In smart mode, we group by price + sequence. In original, price + weight + sequence.
-        const samePrice = p.price === current.price;
-        const isSequential = currentSerial === current.lastSerial + 1;
-        
-        if (samePrice && isSequential) {
-          current.end = p.barcode;
-          current.lastSerial = currentSerial;
-          current.count++;
-        } else {
+        if (ps && currentSerial > current.lastSerial + 1) {
           groups.push(current);
-          current = {
-            uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg,
-            start: p.barcode, end: p.barcode, lastSerial: currentSerial,
-            count: 1, type: 'item'
-          };
+          const missingPrefix = ps.prefix; const missingCountry = ps.country;
+          for (let s = current.lastSerial + 1; s < currentSerial; s++) {
+            groups.push({ type: 'missing', barcode: buildEMS(missingPrefix, s, missingCountry) });
+          }
+          current = { uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg, start: p.barcode, end: p.barcode, lastSerial: currentSerial, count: 1, type: 'item' };
+        } else {
+          const samePrice = p.price === current.price;
+          const isSequential = currentSerial === current.lastSerial + 1;
+          if (samePrice && isSequential) {
+            current.end = p.barcode; current.lastSerial = currentSerial; current.count++;
+          } else {
+            groups.push(current);
+            current = { uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg, start: p.barcode, end: p.barcode, lastSerial: currentSerial, count: 1, type: 'item' };
+          }
         }
       }
+      groups.push(current);
+    } else {
+      // Original Mode: Standard Grouping (No Gaps)
+      // Sort by uni, price, weight then sequence for original view consistency
+      processed.sort((a,b) => {
+        if(a.uni !== b.uni) return (a.uni||'').localeCompare(b.uni||'');
+        if(a.price !== b.price) return a.price - b.price;
+        if(a.weight !== b.weight) return a.weight - b.weight;
+        const pa = parseEMS(a.barcode); const pb = parseEMS(b.barcode);
+        if(pa && pb) return pa.serial - pb.serial;
+        return (a.barcode||'').localeCompare(b.barcode||'');
+      });
+
+      let current = {
+        uni: processed[0].uni, price: processed[0].price, weight: processed[0].weight, pkg: processed[0].pkg,
+        start: processed[0].barcode, end: processed[0].barcode,
+        lastSerial: parseEMS(processed[0].barcode)?.serial || 0,
+        count: 1, type: 'item'
+      };
+
+      for(let i=1; i<processed.length; i++) {
+        const p = processed[i];
+        const ps = parseEMS(p.barcode);
+        const currentSerial = ps?.serial || 0;
+        const sameAll = p.uni === current.uni && p.price === current.price && p.weight === current.weight;
+        const isSequential = currentSerial === current.lastSerial + 1;
+
+        if (sameAll && isSequential) {
+          current.end = p.barcode; current.lastSerial = currentSerial; current.count++;
+        } else {
+          groups.push(current);
+          current = { uni: p.uni, price: p.price, weight: p.weight, pkg: p.pkg, start: p.barcode, end: p.barcode, lastSerial: currentSerial, count: 1, type: 'item' };
+        }
+      }
+      groups.push(current);
     }
-    groups.push(current);
   }
 
   const byUni={};
